@@ -478,6 +478,12 @@ async function loadAll() {
       products = JSON.parse(localStorage.getItem("foodcost_products") || "{}");
     } catch (e2) { materials = {}; products = {}; }
   }
+  // 从现有物料推导分组顺序
+  matGroups = [];
+  for (const k of Object.keys(materials)) {
+    const g = materials[k].group || "其他";
+    if (!matGroups.includes(g)) matGroups.push(g);
+  }
   const keys = Object.keys(products);
   currentProduct = keys[0] || null;
   renderAll();
