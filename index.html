@@ -118,6 +118,15 @@
     gap: 8px;
     margin-bottom: 10px;
   }
+  .mat-card .mat-group-sel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    max-width: 80px;
+  }
   .mat-card .mat-name {
     flex: 1;
     background: transparent;
@@ -597,6 +606,9 @@ function renderMaterials() {
           <span class="drag-handle">⠿</span>
           <input class="mat-name" value="${esc(m.name)}" placeholder="物料名称"
                  onchange="materials['${k}'].name=this.value;scheduleSave();calc()">
+          <select class="mat-group-sel" onchange="changeGroup('${k}',this.value)" title="分组">
+            ${matGroups.map(g => `<option ${(m.group||"其他")===g?"selected":""}>${esc(g)}</option>`).join("")}
+          </select>
           <button class="del-btn" title="删除物料" onclick="deleteMaterial('${k}')">✕</button>
         </div>
         <div class="field-row">
@@ -831,6 +843,17 @@ function moveMaterial(k, dir) {
   const reordered = {};
   for (const key of newOrder) reordered[key] = materials[key];
   materials = reordered;
+  scheduleSave();
+  renderMaterials();
+  renderRecipe();
+  calc();
+}
+
+function changeGroup(k, newGroup) {
+  if (!materials[k]) return;
+  materials[k].group = newGroup;
+  // 如果是新分组，加到分组列表
+  if (!matGroups.includes(newGroup)) matGroups.push(newGroup);
   scheduleSave();
   renderMaterials();
   renderRecipe();
