@@ -210,6 +210,7 @@
     margin-bottom: 10px; padding-bottom: 8px;
     border-bottom: 1px solid var(--border);
   }
+  .spec-card .sc-head .x:hover { color: var(--bad); }
   .spec-card .sc-title { font-size: 15px; font-weight: 700; color: var(--accent); }
   .spec-card .sc-row {
     display: flex; align-items: center; justify-content: space-between;
@@ -585,7 +586,10 @@ function renderRecipe() {
     card.innerHTML = `
       <div class="sc-head">
         <span class="sc-title">${esc(s)}g</span>
-        <span class="sc-cost" id="total-${esc(s)}" style="font-size:14px;font-weight:700">—</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="sc-total-cost" id="total-${esc(s)}">—</span>
+          <span class="x" style="cursor:pointer;color:var(--muted);font-size:14px" onclick="deleteSpec('${esc(s)}')" title="删除此规格">✕</span>
+        </span>
       </div>
       ${rows}
       <div class="sc-total">
