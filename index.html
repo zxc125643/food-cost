@@ -70,7 +70,31 @@
   input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
   .mat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .mat-group {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .mat-group .mg-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mat-group .mg-title {
+    font-size: 14px; font-weight: 700; color: var(--accent);
+    cursor: grab;
+  }
+  .mat-group .mg-title:active { cursor: grabbing; }
+  .mat-group .mg-subtotal {
+    font-size: 13px; color: var(--good); font-weight: 600;
+  }
+  .mat-group .mg-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 10px;
   }
   .mat-card {
@@ -79,7 +103,15 @@
     border-radius: 10px;
     padding: 12px;
     position: relative;
+    cursor: grab;
   }
+  .mat-card:active { cursor: grabbing; }
+  .mat-card.drag-over, .mat-group.drag-over { border-color: var(--accent); }
+  .drag-handle {
+    cursor: grab; color: var(--muted); font-size: 14px;
+    padding: 2px 4px; user-select: none;
+  }
+  .drag-handle:active { cursor: grabbing; }
   .mat-card .mat-head {
     display: flex;
     align-items: center;
@@ -229,6 +261,16 @@
   .spec-card .sc-row .sc-gram { color: var(--muted); font-size: 12px; }
   .spec-card .sc-row .sc-batch { color: var(--good); font-size: 11px; white-space: nowrap; }
   .spec-card .sc-row .sc-cost { color: var(--accent); font-size: 12px; white-space: nowrap; }
+  .spec-card .sc-group { margin-bottom: 8px; }
+  .spec-card .sc-group-title {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    padding: 4px 0; border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .spec-card .sc-group-subtotal {
+    font-size: 12px; color: var(--muted); padding: 4px 0;
+    border-top: 1px dashed var(--border); margin-top: 4px;
+  }
   .spec-card .sc-total {
     margin-top: 8px; padding-top: 8px;
     border-top: 1px solid var(--border);
@@ -377,7 +419,8 @@
 
 <script>
 // ================= 数据 =================
-let materials = {};   // { key: {name, unit, price, weight} }
+let materials = {};   // { key: {name, unit, price, weight, group} }
+let matGroups = [];   // ["饼皮", "内馅", "其他"] — 分组顺序
 let products = {};    // { key: {name, specs: [], usage: {spec: {matKey: grams}}} }
 let currentProduct = null;
 let saveTimer = null;
@@ -471,47 +514,129 @@ function renderMaterials() {
   grid.innerHTML = "";
   const keys = Object.keys(materials);
   if (keys.length === 0) {
-    grid.innerHTML = '<div class="empty-tip" style="grid-column:1/-1">还没有物料，点下面"添加物料"</div>';
+    grid.innerHTML = '<div class="empty-tip">还没有物料，点下面"添加物料"</div>';
     return;
   }
-  for (let i = 0; i < keys.length; i++) {
-    const k = keys[i];
-    const m = materials[k];
-    const div = document.createElement("div");
-    div.className = "mat-card";
-    div.innerHTML = `
-      <div class="mat-head">
-        <input class="mat-name" value="${esc(m.name)}" placeholder="物料名称"
-               onchange="materials['${k}'].name=this.value;scheduleSave();calc()">
-        <button class="del-btn" title="上移" ${i===0?"disabled":""} onclick="moveMaterial('${k}',-1)">↑</button>
-        <button class="del-btn" title="下移" ${i===keys.length-1?"disabled":""} onclick="moveMaterial('${k}',1)">↓</button>
-        <button class="del-btn" title="删除物料" onclick="deleteMaterial('${k}')">✕</button>
+  // 按分组渲染
+  const groups = matGroups.length ? matGroups : ["其他"];
+  for (const g of groups) {
+    const gMats = keys.filter(k => (materials[k].group || "其他") === g);
+    if (gMats.length === 0 && g !== "其他") continue;
+    const gDiv = document.createElement("div");
+    gDiv.className = "mat-group";
+    gDiv.dataset.group = g;
+    gDiv.draggable = true;
+    gDiv.ondragstart = (e) => { e.dataTransfer.setData("text/group", g); };
+    gDiv.ondragover = (e) => { e.preventDefault(); gDiv.classList.add("drag-over"); };
+    gDiv.ondragleave = () => { gDiv.classList.remove("drag-over"); };
+    gDiv.ondrop = (e) => {
+      e.preventDefault();
+      gDiv.classList.remove("drag-over");
+      const g2 = e.dataTransfer.getData("text/group");
+      const k = e.dataTransfer.getData("text/mat");
+      if (g2 && g2 !== g) {
+        // 分组拖到另一个分组
+        const from = matGroups.indexOf(g2);
+        const to = matGroups.indexOf(g);
+        if (from >= 0 && to >= 0) {
+          matGroups.splice(from, 1);
+          matGroups.splice(to, 0, g2);
+          scheduleSave(); renderMaterials();
+        }
+      } else if (k) {
+        // 物料拖到分组
+        materials[k].group = g;
+        scheduleSave(); renderMaterials(); calc();
+      }
+    };
+    let subtotal = 0;
+    for (const k of gMats) {
+      const up = unitPrice(k);
+      if (up) subtotal += up;
+    }
+    gDiv.innerHTML = `
+      <div class="mg-head">
+        <span class="mg-title"><span class="drag-handle">⠿</span> ${esc(g)}</span>
+        <span class="mg-subtotal" id="gsub-${esc(g)}"></span>
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>购买单位</label>
-          <div class="unit-wrap">
-            <select onchange="materials['${k}'].unit=this.value;scheduleSave()">
-              ${UNITS.map(u => `<option ${m.unit===u?"selected":""}>${u}</option>`).join("")}
-            </select>
+      <div class="mg-body"></div>
+    `;
+    const body = gDiv.querySelector(".mg-body");
+    for (const k of gMats) {
+      const m = materials[k];
+      const div = document.createElement("div");
+      div.className = "mat-card";
+      div.dataset.mat = k;
+      div.draggable = true;
+      div.ondragstart = (e) => { e.dataTransfer.setData("text/mat", k); };
+      div.ondragover = (e) => { e.preventDefault(); div.classList.add("drag-over"); };
+      div.ondragleave = () => { div.classList.remove("drag-over"); };
+      div.ondrop = (e) => {
+        e.preventDefault();
+        div.classList.remove("drag-over");
+        const k2 = e.dataTransfer.getData("text/mat");
+        if (k2 && k2 !== k) {
+          // 交换位置
+          const newOrder = Object.keys(materials);
+          const i1 = newOrder.indexOf(k), i2 = newOrder.indexOf(k2);
+          newOrder[i1] = k2; newOrder[i2] = k;
+          const reordered = {};
+          for (const key of newOrder) reordered[key] = materials[key];
+          materials = reordered;
+          scheduleSave(); renderMaterials(); calc();
+        }
+      };
+      div.innerHTML = `
+        <div class="mat-head">
+          <span class="drag-handle">⠿</span>
+          <input class="mat-name" value="${esc(m.name)}" placeholder="物料名称"
+                 onchange="materials['${k}'].name=this.value;scheduleSave();calc()">
+          <button class="del-btn" title="删除物料" onclick="deleteMaterial('${k}')">✕</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>购买单位</label>
+            <div class="unit-wrap">
+              <select onchange="materials['${k}'].unit=this.value;scheduleSave()">
+                ${UNITS.map(u => `<option ${m.unit===u?"selected":""}>${u}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>每份价格（元）</label>
+            <input type="number" step="0.01" min="0" value="${m.price||""}" placeholder="0.00"
+                   oninput="materials['${k}'].price=this.value;scheduleSave();calc()">
           </div>
         </div>
         <div class="field">
-          <label>每份价格（元）</label>
-          <input type="number" step="0.01" min="0" value="${m.price||""}" placeholder="0.00"
-                 oninput="materials['${k}'].price=this.value;scheduleSave();calc()">
+          <label>每份净含量（克）</label>
+          <input type="number" step="1" min="0" value="${m.weight||""}" placeholder="0"
+                 oninput="materials['${k}'].weight=this.value;scheduleSave();calc()">
         </div>
-      </div>
-      <div class="field">
-        <label>每份净含量（克）</label>
-        <input type="number" step="1" min="0" value="${m.weight||""}" placeholder="0"
-               oninput="materials['${k}'].weight=this.value;scheduleSave();calc()">
-      </div>
-      <div class="unit-price" id="up-${k}"></div>
-    `;
-    grid.appendChild(div);
+        <div class="unit-price" id="up-${k}"></div>
+      `;
+      body.appendChild(div);
+    }
+    grid.appendChild(gDiv);
   }
   updateUnitPrices();
+  updateGroupSubtotals();
+}
+
+function updateGroupSubtotals() {
+  const groups = matGroups.length ? matGroups : ["其他"];
+  for (const g of groups) {
+    const el = document.getElementById("gsub-" + g);
+    if (!el) continue;
+    let subtotal = 0;
+    let hasPrice = false;
+    for (const k of Object.keys(materials)) {
+      if ((materials[k].group || "其他") !== g) continue;
+      const up = unitPrice(k);
+      if (up) { subtotal += up; hasPrice = true; }
+    }
+    el.textContent = hasPrice ? `单价合计: ${subtotal.toFixed(4)} 元/克` : "";
+  }
 }
 
 function unitPrice(k) {
@@ -557,7 +682,7 @@ function renderRecipe() {
     specTags.appendChild(tag);
   });
 
-  // 用量卡片（每个规格一张卡）
+  // 用量卡片（每个规格一张卡，物料按分组排列）
   const matKeys = Object.keys(materials);
   const cards = document.getElementById("specCards");
   if (matKeys.length === 0 || p.specs.length === 0) {
@@ -565,23 +690,30 @@ function renderRecipe() {
     return;
   }
   cards.innerHTML = "";
+  const groups = matGroups.length ? matGroups : ["其他"];
   for (const s of p.specs) {
     const card = document.createElement("div");
     card.className = "spec-card";
     let rows = "";
-    for (const mk of matKeys) {
-      const v = (p.usage[s] || {})[mk] || "";
-      rows += `
-        <div class="sc-row">
-          <span class="sc-name">${esc(materials[mk].name||mk)}</span>
-          <div class="sc-inputs">
-            <input type="number" step="0.01" min="0" value="${v}"
-              oninput="setUsage('${esc(s)}','${mk}',this.value)">
-            <span class="sc-gram">克</span>
-            <span class="sc-batch" id="batch-${esc(s)}-${mk}"></span>
-            <span class="sc-cost" id="cost-${esc(s)}-${mk}">—</span>
-          </div>
-        </div>`;
+    for (const g of groups) {
+      const gMats = matKeys.filter(mk => (materials[mk].group || "其他") === g);
+      if (gMats.length === 0) continue;
+      rows += `<div class="sc-group"><div class="sc-group-title">${esc(g)}</div>`;
+      for (const mk of gMats) {
+        const v = (p.usage[s] || {})[mk] || "";
+        rows += `
+          <div class="sc-row">
+            <span class="sc-name">${esc(materials[mk].name||mk)}</span>
+            <div class="sc-inputs">
+              <input type="number" step="0.01" min="0" value="${v}"
+                oninput="setUsage('${esc(s)}','${mk}',this.value)">
+              <span class="sc-gram">克</span>
+              <span class="sc-batch" id="batch-${esc(s)}-${mk}"></span>
+              <span class="sc-cost" id="cost-${esc(s)}-${mk}">—</span>
+            </div>
+          </div>`;
+      }
+      rows += `<div class="sc-group-subtotal" id="gsub2-${esc(s)}-${esc(g)}"></div></div>`;
     }
     card.innerHTML = `
       <div class="sc-head">
@@ -637,8 +769,12 @@ function onProductNameChange(v) {
 function addMaterial() {
   const name = prompt("物料名称：", "");
   if (!name) return;
+  const group = prompt("分组（如：饼皮、内馅、其他）：", "其他");
+  const g = (group || "其他").trim() || "其他";
   const key = "m" + Date.now();
-  materials[key] = { name, unit: "袋", price: "", weight: "" };
+  materials[key] = { name, unit: "袋", price: "", weight: "", group: g };
+  // 如果是新分组，加到分组列表
+  if (!matGroups.includes(g)) matGroups.push(g);
   scheduleSave();
   renderMaterials();
   renderRecipe();
@@ -792,27 +928,40 @@ function calc() {
 
   const batch = getBatch();
   const totals = {};
+  const groups = matGroups.length ? matGroups : ["其他"];
   for (const s of p.specs) {
     let total = 0;
     let valid = false;
-    for (const mk of Object.keys(materials)) {
-      const up = unitPrice(mk);
-      const g = parseFloat((p.usage[s] || {})[mk]);
-      const cell = document.getElementById(`cost-${s}-${mk}`);
-      const batchCell = document.getElementById(`batch-${s}-${mk}`);
-      if (up && !isNaN(g) && g > 0) {
-        const c = up * g;
-        total += c;
-        valid = true;
-        if (cell) cell.textContent = c.toFixed(4);
-        // 批量>1时显示批量用量
-        if (batchCell) {
-          batchCell.textContent = batch > 1 ? `(${(g*batch).toFixed(1)}克)` : "";
+    // 按分组算小计
+    const groupSubtotals = {};
+    for (const g of groups) {
+      let gTotal = 0;
+      let gValid = false;
+      const gMats = Object.keys(materials).filter(mk => (materials[mk].group || "其他") === g);
+      for (const mk of gMats) {
+        const up = unitPrice(mk);
+        const g_ = parseFloat((p.usage[s] || {})[mk]);
+        const cell = document.getElementById(`cost-${s}-${mk}`);
+        const batchCell = document.getElementById(`batch-${s}-${mk}`);
+        if (up && !isNaN(g_) && g_ > 0) {
+          const c = up * g_;
+          gTotal += c;
+          gValid = true;
+          if (cell) cell.textContent = c.toFixed(4);
+          if (batchCell) {
+            batchCell.textContent = batch > 1 ? `(${(g_*batch).toFixed(1)}克)` : "";
+          }
+        } else if (cell) {
+          cell.textContent = "—";
+          if (batchCell) batchCell.textContent = "";
         }
-      } else if (cell) {
-        cell.textContent = "—";
-        if (batchCell) batchCell.textContent = "";
       }
+      groupSubtotals[g] = gValid ? gTotal : null;
+      total += gTotal;
+      if (gValid) valid = true;
+      // 更新分组小计显示
+      const gsub = document.getElementById(`gsub2-${s}-${g}`);
+      if (gsub) gsub.textContent = gValid ? `${g}小计: ${gTotal.toFixed(4)} 元` : "";
     }
     totals[s] = valid ? total : null;
     // 卡片头部的合计
