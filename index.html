@@ -392,7 +392,9 @@
 
 <!-- ② 物料价格（全局共享） -->
 <div class="card">
-  <div class="card-title"><span class="num">②</span> 物料价格（全局共享，所有产品通用）</div>
+  <div class="card-title"><span class="num">②</span> 物料价格（全局共享，所有产品通用）
+    <button class="add-btn" style="margin-left:auto;padding:4px 10px;font-size:12px" onclick="manageGroups()">⚙ 管理分组</button>
+  </div>
   <div class="mat-grid" id="matGrid"></div>
   <button class="add-btn" style="margin-top:10px" onclick="addMaterial()">+ 添加物料</button>
 </div>
@@ -854,6 +856,67 @@ function changeGroup(k, newGroup) {
   materials[k].group = newGroup;
   // 如果是新分组，加到分组列表
   if (!matGroups.includes(newGroup)) matGroups.push(newGroup);
+  scheduleSave();
+  renderMaterials();
+  renderRecipe();
+  calc();
+}
+
+function manageGroups() {
+  // 显示当前分组列表，让用户选择操作
+  const list = matGroups.map((g, i) => `${i+1}. ${g}`).join("\n");
+  const action = prompt(
+    `当前分组：\n${list || "（无分组）"}\n\n` +
+    `输入操作：\n` +
+    `• 添加新分组：输入分组名（如"装饰"）\n` +
+    `• 删除分组：输入"删 分组名"（如"删 装饰"）\n` +
+    `• 重命名：输入"改 旧名 新名"（如"改 装饰 点缀"）\n\n` +
+    `输入操作：`,
+    ""
+  );
+  if (!action) return;
+  const trimmed = action.trim();
+  
+  // 删除分组
+  if (trimmed.startsWith("删 ")) {
+    const g = trimmed.slice(2).trim();
+    if (!matGroups.includes(g)) { alert("分组不存在"); return; }
+    // 检查是否有物料在这个分组
+    const hasMats = Object.values(materials).some(m => (m.group || "其他") === g);
+    if (hasMats) { alert(`分组「${g}」还有物料，不能删除。先把物料移到其他分组。`); return; }
+    matGroups = matGroups.filter(x => x !== g);
+    scheduleSave();
+    renderMaterials();
+    renderRecipe();
+    calc();
+    return;
+  }
+  
+  // 重命名分组
+  if (trimmed.startsWith("改 ")) {
+    const parts = trimmed.slice(2).trim().split(/\s+/);
+    if (parts.length < 2) { alert("格式：改 旧名 新名"); return; }
+    const oldName = parts[0];
+    const newName = parts.slice(1).join(" ");
+    if (!matGroups.includes(oldName)) { alert("旧分组不存在"); return; }
+    // 更新所有物料的分组
+    for (const k of Object.keys(materials)) {
+      if ((materials[k].group || "其他") === oldName) {
+        materials[k].group = newName;
+      }
+    }
+    matGroups = matGroups.map(g => g === oldName ? newName : g);
+    scheduleSave();
+    renderMaterials();
+    renderRecipe();
+    calc();
+    return;
+  }
+  
+  // 添加新分组
+  const newGroup = trimmed;
+  if (matGroups.includes(newGroup)) { alert("分组已存在"); return; }
+  matGroups.push(newGroup);
   scheduleSave();
   renderMaterials();
   renderRecipe();
