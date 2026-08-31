@@ -196,7 +196,7 @@
   .batch-row .batch-unit { color: var(--muted); font-size: 13px; }
   .spec-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 12px;
   }
   .spec-card {
@@ -213,14 +213,21 @@
   .spec-card .sc-title { font-size: 15px; font-weight: 700; color: var(--accent); }
   .spec-card .sc-row {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 5px 0; font-size: 13px; gap: 8px;
+    padding: 6px 0; font-size: 13px; gap: 8px;
   }
-  .spec-card .sc-row .sc-name { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spec-card .sc-row .sc-name {
+    flex: 1; color: var(--text);
+    font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .spec-card .sc-row .sc-inputs {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
   .spec-card .sc-row input {
     width: 76px; padding: 4px 6px; text-align: center; font-size: 13px;
   }
-  .spec-card .sc-row .sc-gram { color: var(--muted); font-size: 12px; width: 20px; text-align: right; }
-  .spec-card .sc-row .sc-cost { color: var(--accent); font-size: 12px; width: 64px; text-align: right; white-space: nowrap; }
+  .spec-card .sc-row .sc-gram { color: var(--muted); font-size: 12px; }
+  .spec-card .sc-row .sc-batch { color: var(--good); font-size: 11px; white-space: nowrap; }
+  .spec-card .sc-row .sc-cost { color: var(--accent); font-size: 12px; white-space: nowrap; }
   .spec-card .sc-total {
     margin-top: 8px; padding-top: 8px;
     border-top: 1px solid var(--border);
@@ -562,11 +569,14 @@ function renderRecipe() {
       const v = (p.usage[s] || {})[mk] || "";
       rows += `
         <div class="sc-row">
-          <span class="sc-name" title="${esc(materials[mk].name||mk)}">${esc(materials[mk].name||mk)}</span>
-          <input type="number" step="0.01" min="0" value="${v}"
-            oninput="setUsage('${esc(s)}','${mk}',this.value)">
-          <span class="sc-gram">克</span>
-          <span class="sc-cost" id="cost-${esc(s)}-${mk}">—</span>
+          <span class="sc-name">${esc(materials[mk].name||mk)}</span>
+          <div class="sc-inputs">
+            <input type="number" step="0.01" min="0" value="${v}"
+              oninput="setUsage('${esc(s)}','${mk}',this.value)">
+            <span class="sc-gram">克</span>
+            <span class="sc-batch" id="batch-${esc(s)}-${mk}"></span>
+            <span class="sc-cost" id="cost-${esc(s)}-${mk}">—</span>
+          </div>
         </div>`;
     }
     card.innerHTML = `
@@ -735,13 +745,19 @@ function calc() {
       const up = unitPrice(mk);
       const g = parseFloat((p.usage[s] || {})[mk]);
       const cell = document.getElementById(`cost-${s}-${mk}`);
+      const batchCell = document.getElementById(`batch-${s}-${mk}`);
       if (up && !isNaN(g) && g > 0) {
         const c = up * g;
         total += c;
         valid = true;
         if (cell) cell.textContent = c.toFixed(4);
+        // 批量>1时显示批量用量
+        if (batchCell) {
+          batchCell.textContent = batch > 1 ? `(${(g*batch).toFixed(1)}克)` : "";
+        }
       } else if (cell) {
         cell.textContent = "—";
+        if (batchCell) batchCell.textContent = "";
       }
     }
     totals[s] = valid ? total : null;
@@ -750,12 +766,15 @@ function calc() {
     if (tc) tc.textContent = valid ? total.toFixed(4) + " 元" : "—";
     // 卡片底部的合计（带批量）
     const tv = document.getElementById("totalval-" + s);
+    const label = document.querySelector(`#specCards .spec-card:nth-child(${p.specs.indexOf(s)+1}) .sc-t-label`);
     if (tv) {
       if (valid) {
         const batchTotal = total * batch;
         tv.innerHTML = batchTotal.toFixed(2) + " <small>元/" + batch + "个</small>";
+        if (label) label.textContent = batch > 1 ? "合计" : "单个合计";
       } else {
         tv.innerHTML = "— <small>元/个</small>";
+        if (label) label.textContent = "单个合计";
       }
     }
   }
