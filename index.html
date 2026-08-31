@@ -643,6 +643,22 @@ function addMaterial() {
   renderMaterials();
   renderRecipe();
   calc();
+  // 询问是否同步到各规格用量
+  const prodKeys = Object.keys(products);
+  if (prodKeys.length === 0) return;
+  if (!confirm(`是否将「${name}」同步到各产品的规格用量里？\n\n（同步后可以在用量卡片里填每个规格用多少克）`)) return;
+  for (const pk of prodKeys) {
+    const p = products[pk];
+    for (const s of p.specs) {
+      if (!p.usage[s]) p.usage[s] = {};
+      if (p.usage[s][key] === undefined) {
+        p.usage[s][key] = "";
+      }
+    }
+  }
+  scheduleSave();
+  renderRecipe();
+  calc();
 }
 
 function deleteMaterial(k) {
