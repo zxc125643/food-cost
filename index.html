@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>食品成本计算器</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --card: #1a2129;
+    --card2: #212a35;
+    --border: #2d3a48;
+    --text: #e8edf2;
+    --muted: #8b98a5;
+    --accent: #f5c542;
+    --good: #6ee7a0;
+    --bad: #ff7b7b;
+    --blue: #64b5f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .card-title .num {
+    background: var(--accent);
+    color: #1a1a1a;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  input, select {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 14px;
+    width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input[type=number] { -moz-appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .mat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+  }
+  .mat-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    position: relative;
+  }
+  .mat-card .mat-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .mat-card .mat-name {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed transparent;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 2px 0;
+  }
+  .mat-card .mat-name:hover, .mat-card .mat-name:focus {
+    border-bottom-color: var(--accent);
+    background: transparent;
+  }
+  .del-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .del-btn:hover { color: var(--bad); background: rgba(255,123,123,0.1); }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--muted); }
+  .field .unit-wrap { display: flex; align-items: center; gap: 6px; }
+  .field .unit-wrap select { width: 72px; flex-shrink: 0; }
+  .field .unit-wrap input { flex: 1; min-width: 0; }
+  .unit-suffix { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .unit-price {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+  .add-btn {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    width: 100%;
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .product-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .product-bar select { width: auto; min-width: 140px; }
+  .btn {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #1a1a1a; border-color: var(--accent); font-weight: 600; }
+  .btn-danger { color: var(--bad); border-color: rgba(255,123,123,0.4); }
+  .btn-danger:hover { background: rgba(255,123,123,0.1); border-color: var(--bad); }
+  .btn-good { color: var(--good); border-color: rgba(110,231,160,0.4); }
+  .btn-good:hover { background: rgba(110,231,160,0.1); border-color: var(--good); }
+  .spec-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .spec-tag {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 4px 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .spec-tag input {
+    width: 60px;
+    padding: 2px 6px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .spec-tag .x { cursor: pointer; color: var(--muted); font-size: 14px; }
+  .spec-tag .x:hover { color: var(--bad); }
+  .matrix-wrap { overflow-x: auto; }
+  table.matrix {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 400px;
+  }
+  table.matrix th, table.matrix td {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: center;
+    font-size: 13px;
+  }
+  table.matrix th {
+    background: var(--card2);
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  table.matrix td.mat-name-cell { text-align: left; font-weight: 600; white-space: nowrap; }
+  table.matrix input {
+    width: 72px;
+    padding: 5px 6px;
+    text-align: center;
+    font-size: 13px;
+  }
+  table.matrix td.cost-cell { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  table.matrix tr.total-row td {
+    background: rgba(100,181,246,0.1);
+    font-weight: 700;
+  }
+  table.matrix tr.total-row td.cost-cell { color: var(--good); font-size: 15px; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .summary-item {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .summary-item .spec { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .summary-item .cost { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .summary-item .cost small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .summary-item.lowest { border-color: var(--good); background: rgba(110,231,160,0.08); }
+  .summary-item.lowest .cost { color: var(--good); }
+  .summary-item .badge {
+    display: inline-block;
+    font-size: 10px;
+    background: var(--good);
+    color: #1a1a1a;
+    border-radius: 8px;
+    padding: 1px 8px;
+    margin-top: 6px;
+    font-weight: 700;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .save-hint { font-size: 12px; color: var(--muted); }
+  .empty-tip { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .card { padding: 12px; }
+    .mat-grid { grid-template-columns: 1fr; }
+    .field-row { grid-template-columns: 1fr; }
+    input, select { font-size: 16px; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<h1>🥟 食品成本计算器</h1>
+<div class="sub">物料价格全局共享 · 每个产品独立配方 · 成本自动计算</div>
+
+<div class="toolbar">
+  <span class="save-hint" id="saveHint">未保存</span>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-good" onclick="exportExcel()">导出Excel</button>
+    <button class="btn btn-danger" onclick="clearAll()">清空重填</button>
+  </div>
+</div>
+
+<!-- ① 产品选择 -->
+<div class="card">
+  <div class="card-title"><span class="num">①</span> 产品</div>
+  <div class="product-bar">
+    <select id="productSelect" onchange="switchProduct(this.value)"></select>
+    <button class="btn btn-primary" onclick="newProduct()">+ 新建产品</button>
+    <button class="btn btn-danger" onclick="deleteProduct()">删除当前产品</button>
+  </div>
+</div>
+
+<!-- ② 物料价格（全局共享） -->
+<div class="card">
+  <div class="card-title"><span class="num">②</span> 物料价格（全局共享，所有产品通用）</div>
+  <div class="mat-grid" id="matGrid"></div>
+  <button class="add-btn" style="margin-top:10px" onclick="addMaterial()">+ 添加物料</button>
+</div>
+
+<!-- ③ 产品配方 -->
+<div class="card" id="recipeCard">
+  <div class="card-title"><span class="num">③</span> 当前产品配方</div>
+  <div class="field" style="margin-bottom:12px;max-width:300px">
+    <label>产品名称</label>
+    <input id="productName" onchange="onProductNameChange(this.value)">
+  </div>
+  <div class="field" style="margin-bottom:12px">
+    <label>规格（可增删，单位克）</label>
+    <div class="spec-tags" id="specTags" style="margin-top:6px"></div>
+  </div>
+  <button class="add-btn" style="margin-bottom:12px" onclick="addSpec()">+ 添加规格</button>
+  <div class="field" style="margin-bottom:8px">
+    <label>用量表（克）— 每行一个物料，每列一个规格</label>
+  </div>
+  <div class="matrix-wrap" id="matrixWrap"></div>
+</div>
+
+<!-- ④ 成本汇总 -->
+<div class="card">
+  <div class="card-title"><span class="num">④</span> 单个成本汇总</div>
+  <div class="summary-grid" id="summaryGrid"></div>
+</div>
+
+<script>
+// ================= 数据 =================
+let materials = {};   // { key: {name, unit, price, weight} }
+let products = {};    // { key: {name, specs: [], usage: {spec: {matKey: grams}}} }
+let currentProduct = null;
+let saveTimer = null;
+
+const UNITS = ["袋","瓶","罐","盒","桶","包","支","条"];
+
+// ================= 持久化 =================
+function scheduleSave() {
+  const hint = document.getElementById("saveHint");
+  hint.textContent = "保存中...";
+  hint.style.color = "var(--accent)";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveAll, 800);
+}
+
+async function saveAll() {
+  try {
+    await fetch("/api/materials", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(materials)
+    });
+    await fetch("/api/products", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(products)
+    });
+    const hint = document.getElementById("saveHint");
+    hint.textContent = "已保存到服务器";
+    hint.style.color = "var(--good)";
+  } catch (e) {
+    // 离线降级 localStorage
+    try {
+      localStorage.setItem("foodcost_materials", JSON.stringify(materials));
+      localStorage.setItem("foodcost_products", JSON.stringify(products));
+      const hint = document.getElementById("saveHint");
+      hint.textContent = "已存本地（服务器不可达）";
+      hint.style.color = "var(--accent)";
+    } catch (e2) {}
+  }
+}
+
+async function loadAll() {
+  try {
+    const [rm, rp] = await Promise.all([
+      fetch("/api/materials").then(r => r.json()),
+      fetch("/api/products").then(r => r.json())
+    ]);
+    materials = rm || {};
+    products = rp || {};
+  } catch (e) {
+    // 离线降级
+    try {
+      materials = JSON.parse(localStorage.getItem("foodcost_materials") || "{}");
+      products = JSON.parse(localStorage.getItem("foodcost_products") || "{}");
+    } catch (e2) { materials = {}; products = {}; }
+  }
+  const keys = Object.keys(products);
+  currentProduct = keys[0] || null;
+  renderAll();
+}
+
+// ================= 渲染 =================
+function renderAll() {
+  renderProductSelect();
+  renderMaterials();
+  renderRecipe();
+  calc();
+}
+
+function renderProductSelect() {
+  const sel = document.getElementById("productSelect");
+  sel.innerHTML = "";
+  for (const [k, p] of Object.entries(products)) {
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = p.name || "未命名";
+    if (k === currentProduct) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  if (!currentProduct) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "（无产品，点新建）";
+    sel.appendChild(opt);
+  }
+}
+
+function renderMaterials() {
+  const grid = document.getElementById("matGrid");
+  grid.innerHTML = "";
+  const keys = Object.keys(materials);
+  if (keys.length === 0) {
+    grid.innerHTML = '<div class="empty-tip" style="grid-column:1/-1">还没有物料，点下面"添加物料"</div>';
+    return;
+  }
+  for (const k of keys) {
+    const m = materials[k];
+    const div = document.createElement("div");
+    div.className = "mat-card";
+    div.innerHTML = `
+      <div class="mat-head">
+        <input class="mat-name" value="${esc(m.name)}" placeholder="物料名称"
+               onchange="materials['${k}'].name=this.value;scheduleSave();calc()">
+        <button class="del-btn" title="删除物料" onclick="deleteMaterial('${k}')">✕</button>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>购买单位</label>
+          <div class="unit-wrap">
+            <select onchange="materials['${k}'].unit=this.value;scheduleSave()">
+              ${UNITS.map(u => `<option ${m.unit===u?"selected":""}>${u}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>每份价格（元）</label>
+          <input type="number" step="0.01" min="0" value="${m.price||""}" placeholder="0.00"
+                 oninput="materials['${k}'].price=this.value;scheduleSave();calc()">
+        </div>
+      </div>
+      <div class="field">
+        <label>每份净含量（克）</label>
+        <input type="number" step="1" min="0" value="${m.weight||""}" placeholder="0"
+               oninput="materials['${k}'].weight=this.value;scheduleSave();calc()">
+      </div>
+      <div class="unit-price" id="up-${k}"></div>
+    `;
+    grid.appendChild(div);
+  }
+  updateUnitPrices();
+}
+
+function unitPrice(k) {
+  const m = materials[k];
+  const p = parseFloat(m.price), w = parseFloat(m.weight);
+  if (!p || !w || w <= 0) return null;
+  return p / w;
+}
+
+function updateUnitPrices() {
+  for (const k of Object.keys(materials)) {
+    const el = document.getElementById("up-" + k);
+    if (!el) continue;
+    const up = unitPrice(k);
+    el.textContent = up ? `折算单价：${up.toFixed(4)} 元/克（${(up*500).toFixed(2)} 元/斤）` : "折算单价：—";
+  }
+}
+
+function renderRecipe() {
+  const nameInput = document.getElementById("productName");
+  const specTags = document.getElementById("specTags");
+  const wrap = document.getElementById("matrixWrap");
+  const p = currentProduct ? products[currentProduct] : null;
+
+  if (!p) {
+    nameInput.value = "";
+    specTags.innerHTML = "";
+    wrap.innerHTML = '<div class="empty-tip">先新建一个产品</div>';
+    return;
+  }
+  nameInput.value = p.name || "";
+
+  // 规格标签
+  specTags.innerHTML = "";
+  for (const s of p.specs) {
+    const tag = document.createElement("div");
+    tag.className = "spec-tag";
+    tag.innerHTML = `
+      <input value="${esc(s)}" onchange="renameSpec('${esc(s)}',this.value)">
+      <span class="x" onclick="deleteSpec('${esc(s)}')" title="删除规格">✕</span>
+    `;
+    specTags.appendChild(tag);
+  }
+
+  // 用量矩阵
+  const matKeys = Object.keys(materials);
+  if (matKeys.length === 0 || p.specs.length === 0) {
+    wrap.innerHTML = '<div class="empty-tip">需要至少1个物料和1个规格</div>';
+    return;
+  }
+  let html = '<table class="matrix"><thead><tr><th>物料</th>';
+  for (const s of p.specs) html += `<th>${esc(s)}g</th>`;
+  for (const s of p.specs) html += `<th>${esc(s)}g 成本</th>`;
+  html += '</tr></thead><tbody>';
+  for (const mk of matKeys) {
+    html += `<tr><td class="mat-name-cell">${esc(materials[mk].name||mk)}</td>`;
+    for (const s of p.specs) {
+      const v = (p.usage[s] || {})[mk] || "";
+      html += `<td><input type="number" step="0.01" min="0" value="${v}"
+        oninput="setUsage('${esc(s)}','${mk}',this.value)"></td>`;
+    }
+    for (const s of p.specs) {
+      html += `<td class="cost-cell" id="cost-${esc(s)}-${mk}">—</td>`;
+    }
+    html += '</tr>';
+  }
+  // 合计行
+  html += '<tr class="total-row"><td class="mat-name-cell">单个合计</td>';
+  for (const s of p.specs) html += '<td></td>';
+  for (const s of p.specs) {
+    html += `<td class="cost-cell" id="total-${esc(s)}">—</td>`;
+  }
+  html += '</tr></tbody></table>';
+  wrap.innerHTML = html;
+}
+
+// ================= 操作 =================
+function newProduct() {
+  const name = prompt("新产品名称：", "新产品");
+  if (!name) return;
+  const key = "p" + Date.now();
+  products[key] = { name, specs: ["50"], usage: {} };
+  currentProduct = key;
+  scheduleSave();
+  renderAll();
+}
+
+function deleteProduct() {
+  if (!currentProduct) return;
+  const p = products[currentProduct];
+  if (!confirm(`确定删除产品「${p.name}」？此操作不可恢复。`)) return;
+  delete products[currentProduct];
+  currentProduct = Object.keys(products)[0] || null;
+  scheduleSave();
+  renderAll();
+}
+
+function switchProduct(key) {
+  currentProduct = key || null;
+  renderAll();
+}
+
+function onProductNameChange(v) {
+  if (!currentProduct) return;
+  products[currentProduct].name = v;
+  scheduleSave();
+  renderProductSelect();
+}
+
+function addMaterial() {
+  const name = prompt("物料名称：", "");
+  if (!name) return;
+  const key = "m" + Date.now();
+  materials[key] = { name, unit: "袋", price: "", weight: "" };
+  scheduleSave();
+  renderMaterials();
+  renderRecipe();
+  calc();
+}
+
+function deleteMaterial(k) {
+  const m = materials[k];
+  if (!confirm(`确定删除物料「${m.name}」？所有产品里的用量也会清除。`)) return;
+  delete materials[k];
+  // 清除所有产品里的用量
+  for (const p of Object.values(products)) {
+    for (const s of Object.keys(p.usage || {})) {
+      delete p.usage[s][k];
+    }
+  }
+  scheduleSave();
+  renderMaterials();
+  renderRecipe();
+  calc();
+}
+
+function addSpec() {
+  if (!currentProduct) { alert("先新建产品"); return; }
+  const p = products[currentProduct];
+  const v = prompt("规格（克）：", "50");
+  if (v === null) return;
+  const s = v.trim();
+  if (!s || p.specs.includes(s)) { if (s && p.specs.includes(s)) alert("规格已存在"); return; }
+  p.specs.push(s);
+  p.usage[s] = {};
+  scheduleSave();
+  renderRecipe();
+  calc();
+}
+
+function renameSpec(oldS, newS) {
+  if (!currentProduct) return;
+  const p = products[currentProduct];
+  newS = newS.trim();
+  if (!newS || newS === oldS) return;
+  if (p.specs.includes(newS)) { alert("规格已存在"); renderRecipe(); return; }
+  p.specs = p.specs.map(s => s === oldS ? newS : s);
+  if (p.usage[oldS]) {
+    p.usage[newS] = p.usage[oldS];
+    delete p.usage[oldS];
+  }
+  scheduleSave();
+  renderRecipe();
+  calc();
+}
+
+function deleteSpec(s) {
+  if (!currentProduct) return;
+  const p = products[currentProduct];
+  if (!confirm(`确定删除规格 ${s}g？`)) return;
+  p.specs = p.specs.filter(x => x !== s);
+  delete p.usage[s];
+  scheduleSave();
+  renderRecipe();
+  calc();
+}
+
+function setUsage(spec, matKey, v) {
+  if (!currentProduct) return;
+  const p = products[currentProduct];
+  if (!p.usage[spec]) p.usage[spec] = {};
+  p.usage[spec][matKey] = v;
+  scheduleSave();
+  calc();
+}
+
+// ================= 计算 =================
+function calc() {
+  updateUnitPrices();
+  const p = currentProduct ? products[currentProduct] : null;
+  const grid = document.getElementById("summaryGrid");
+  grid.innerHTML = "";
+  if (!p) return;
+
+  const totals = {};
+  for (const s of p.specs) {
+    let total = 0;
+    let valid = false;
+    for (const mk of Object.keys(materials)) {
+      const up = unitPrice(mk);
+      const g = parseFloat((p.usage[s] || {})[mk]);
+      const cell = document.getElementById(`cost-${s}-${mk}`);
+      if (up && !isNaN(g) && g > 0) {
+        const c = up * g;
+        total += c;
+        valid = true;
+        if (cell) cell.textContent = c.toFixed(4);
+      } else if (cell) {
+        cell.textContent = "—";
+      }
+    }
+    totals[s] = valid ? total : null;
+    const tc = document.getElementById("total-" + s);
+    if (tc) tc.textContent = valid ? total.toFixed(4) : "—";
+  }
+
+  // 汇总卡片
+  const validTotals = Object.entries(totals).filter(([, v]) => v !== null);
+  let min = Infinity;
+  for (const [, v] of validTotals) if (v < min) min = v;
+
+  for (const s of p.specs) {
+    const v = totals[s];
+    const div = document.createElement("div");
+    div.className = "summary-item" + (v !== null && v === min && validTotals.length > 1 ? " lowest" : "");
+    div.innerHTML = `
+      <div class="spec">${esc(s)}g</div>
+      <div class="cost">${v !== null ? v.toFixed(4) : "—"} <small>元/个</small></div>
+      ${v !== null && v === min && validTotals.length > 1 ? '<div class="badge">最低</div>' : ""}
+    `;
+    grid.appendChild(div);
+  }
+}
+
+// ================= Excel 导出 =================
+async function exportExcel() {
+  if (!currentProduct) { alert("先新建产品"); return; }
+  const btn = document.querySelector(".btn-good");
+  const orig = btn.textContent;
+  btn.textContent = "导出中...";
+  btn.disabled = true;
+  try {
+    saveAll();
+    await new Promise(r => setTimeout(r, 1000));
+    const res = await fetch("/api/export?product=" + encodeURIComponent(currentProduct));
+    if (!res.ok) throw new Error("http " + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (products[currentProduct].name || "product") + "成本表.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    btn.textContent = "已导出";
+  } catch (e) {
+    alert("导出失败: " + e.message);
+    btn.textContent = orig;
+  }
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+}
+
+function clearAll() {
+  if (!confirm("确定清空所有物料和产品？此操作不可恢复！")) return;
+  materials = {};
+  products = {};
+  currentProduct = null;
+  scheduleSave();
+  renderAll();
+}
+
+// ================= 工具 =================
+function esc(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+loadAll();
+</script>
+</body>
+</html>

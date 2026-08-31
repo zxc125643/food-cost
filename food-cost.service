@@ -1,0 +1,14 @@
+[Unit]
+Description=Food Cost Calculator (generic, static web + API)
+After=network.target
+
+[Service]
+Type=simple
+User=yi
+WorkingDirectory=/home/yi/food-cost
+ExecStart=/usr/bin/python3 /home/yi/food-cost/server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

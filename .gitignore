@@ -1,0 +1,6 @@
+materials.json
+products.json
+*.bak_*
+__pycache__/
+migrate.py
+mooncake-backup-*
