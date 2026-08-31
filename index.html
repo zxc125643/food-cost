@@ -420,7 +420,110 @@
     .summary-item { padding: 10px; }
     .summary-item .spec { font-size: 14px; }
     .summary-item .cost { font-size: 28px; }
+    
+    /* 弹窗移动端适配 */
+    .modal-box { 
+      width: 95%; 
+      padding: 16px; 
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-size: 15px; margin-bottom: 12px; }
+    .modal-body { font-size: 13px; margin-bottom: 14px; }
+    .modal-opt { padding: 14px 16px; font-size: 14px; }
+    .modal-input-row input { padding: 12px; font-size: 16px; }
+    .modal-btn { padding: 12px 20px; font-size: 14px; }
   }
+  /* 自定义模态弹窗 */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: slideUp 0.25s ease;
+  }
+  .modal-title {
+    font-size: 16px; font-weight: 700; color: var(--text);
+    margin-bottom: 16px;
+  }
+  .modal-body {
+    font-size: 14px; color: var(--muted);
+    margin-bottom: 20px; line-height: 1.6;
+  }
+  .modal-options {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 20px;
+  }
+  .modal-opt {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px; color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+  }
+  .modal-opt:hover {
+    border-color: var(--accent);
+    background: rgba(255,209,102,0.08);
+  }
+  .modal-opt:active { transform: scale(0.98); }
+  .modal-opt .opt-num {
+    display: inline-block;
+    width: 22px; height: 22px;
+    background: var(--accent);
+    color: #1a1a2e;
+    border-radius: 50%;
+    text-align: center; line-height: 22px;
+    font-weight: 700; font-size: 12px;
+    margin-right: 8px;
+  }
+  .modal-input-row {
+    display: flex; gap: 8px; margin-bottom: 20px;
+  }
+  .modal-input-row input {
+    flex: 1;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px; color: var(--text);
+  }
+  .modal-actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .modal-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+  }
+  .modal-btn.primary {
+    background: var(--accent);
+    color: #1a1a2e;
+  }
+  .modal-btn.primary:hover { filter: brightness(1.1); }
+  .modal-btn.secondary {
+    background: var(--card2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .modal-btn.secondary:hover { border-color: var(--muted); }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>
 </head>
 <body>
@@ -844,50 +947,57 @@ function onProductNameChange(v) {
 }
 
 function addMaterial() {
-  const name = prompt("物料名称：", "");
-  if (!name) return;
-  const group = prompt("分组（如：饼皮、内馅、其他）：", "其他");
-  const g = (group || "其他").trim() || "其他";
-  const key = "m" + Date.now();
-  materials[key] = { name, unit: "袋", price: "", weight: "", group: g };
-  // 如果是新分组，加到分组列表
-  if (!matGroups.includes(g)) matGroups.push(g);
-  scheduleSave();
-  renderMaterials();
-  renderRecipe();
-  calc();
-  // 询问是否同步到各规格用量
-  const prodKeys = Object.keys(products);
-  if (prodKeys.length === 0) return;
-  if (!confirm(`是否将「${name}」同步到各产品的规格用量里？\n\n（同步后可以在用量卡片里填每个规格用多少克）`)) return;
-  for (const pk of prodKeys) {
-    const p = products[pk];
-    for (const s of p.specs) {
-      if (!p.usage[s]) p.usage[s] = {};
-      if (p.usage[s][key] === undefined) {
-        p.usage[s][key] = "";
-      }
-    }
-  }
-  scheduleSave();
-  renderRecipe();
-  calc();
+  showPrompt("添加物料", "输入物料名称：", (name) => {
+    if (!name || !name.trim()) return;
+    showPrompt("分组", "输入分组名（如：饼皮、内馅、其他）：", (group) => {
+      const g = (group || "其他").trim() || "其他";
+      const key = "m" + Date.now();
+      materials[key] = { name: name.trim(), unit: "袋", price: "", weight: "", group: g };
+      if (!matGroups.includes(g)) matGroups.push(g);
+      scheduleSave();
+      renderMaterials();
+      renderRecipe();
+      calc();
+      // 询问是否同步
+      showConfirm(
+        "同步用量",
+        `是否将「${name.trim()}」同步到各产品的规格用量里？`,
+        () => {
+          for (const pk of Object.keys(products)) {
+            const p = products[pk];
+            for (const s of p.specs) {
+              if (!p.usage[s]) p.usage[s] = {};
+              if (p.usage[s][key] === undefined) p.usage[s][key] = "";
+            }
+          }
+          scheduleSave();
+          renderRecipe();
+          calc();
+        }
+      );
+    }, "饼皮", "", "text");
+  }, "如：蛋黄", "", "text");
 }
 
 function deleteMaterial(k) {
   if (!materials[k]) return;
-  if (!confirm(`确定删除物料「${materials[k].name}」？所有产品里的用量也会清除。`)) return;
-  delete materials[k];
-  // 清除所有产品里的用量
-  for (const p of Object.values(products)) {
-    for (const s of Object.keys(p.usage || {})) {
-      delete p.usage[s][k];
-    }
-  }
-  scheduleSave();
-  renderMaterials();
-  renderRecipe();
-  calc();
+  showConfirm(
+    "删除物料",
+    `确定删除物料「${materials[k].name}」？所有产品里的用量也会清除。`,
+    () => {
+      delete materials[k];
+      for (const p of Object.values(products)) {
+        for (const s of Object.keys(p.usage || {})) {
+          delete p.usage[s][k];
+        }
+      }
+      scheduleSave();
+      renderMaterials();
+      renderRecipe();
+      calc();
+    },
+    "删除"
+  );
 }
 
 function moveMaterial(k, dir) {
@@ -919,37 +1029,207 @@ function changeGroup(k, newGroup) {
   calc();
 }
 
+// ================= 自定义弹窗 =================
+function showModal({ title, body, options, input, confirm, onConfirm, onCancel }) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  
+  let html = `<div class="modal-box">
+    <div class="modal-title">${esc(title)}</div>`;
+  if (body) html += `<div class="modal-body">${body}</div>`;
+  
+  if (options) {
+    html += `<div class="modal-options">`;
+    options.forEach((opt, i) => {
+      html += `<button class="modal-opt" data-opt="${i}"><span class="opt-num">${i+1}</span>${esc(opt)}</button>`;
+    });
+    html += `</div>`;
+  }
+  
+  if (input) {
+    html += `<div class="modal-input-row" ${input.showOnOption !== undefined ? 'style="display:none"' : ''}>
+      <input type="${input.type || 'text'}" id="modalInput" placeholder="${esc(input.placeholder || '')}" value="${esc(input.value || '')}">
+    </div>`;
+  }
+  
+  // 按钮区
+  let actionsHtml = `<button class="modal-btn secondary" id="modalCancel">${confirm ? '取消' : '关闭'}</button>`;
+  if (confirm) {
+    actionsHtml += `<button class="modal-btn primary" id="modalOk">${confirm.okText || '确定'}</button>`;
+  } else if (!options) {
+    actionsHtml += `<button class="modal-btn primary" id="modalOk">确定</button>`;
+  }
+  html += `<div class="modal-actions">${actionsHtml}</div></div>`;
+  
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  
+  // 选项按钮
+  if (options) {
+    overlay.querySelectorAll(".modal-opt").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const optIdx = parseInt(btn.dataset.opt);
+        // 高亮选中
+        overlay.querySelectorAll(".modal-opt").forEach(b => b.style.borderColor = "");
+        btn.style.borderColor = "var(--accent)";
+        
+        // 如果选的是需要输入框的选项
+        if (input && input.showOnOption === optIdx) {
+          const inputRow = overlay.querySelector(".modal-input-row");
+          if (inputRow) inputRow.style.display = "flex";
+          // 加确认按钮
+          const actions = overlay.querySelector(".modal-actions");
+          if (!actions.querySelector("#modalConfirmOpt")) {
+            const confirmBtn = document.createElement("button");
+            confirmBtn.className = "modal-btn primary";
+            confirmBtn.id = "modalConfirmOpt";
+            confirmBtn.textContent = "确认";
+            confirmBtn.addEventListener("click", () => {
+              const val = document.getElementById("modalInput")?.value || "";
+              overlay.remove();
+              if (onConfirm) onConfirm({ option: optIdx, value: val });
+            });
+            actions.appendChild(confirmBtn);
+          }
+          document.getElementById("modalInput")?.focus();
+        } else {
+          // 直接确认
+          overlay.remove();
+          if (onConfirm) onConfirm({ option: optIdx, value: null });
+        }
+      });
+    });
+  }
+  
+  // 取消/关闭
+  overlay.querySelector("#modalCancel").addEventListener("click", () => {
+    overlay.remove();
+    if (onCancel) onCancel();
+  });
+  
+  // 确定（confirm 模式或无选项模式）
+  const okBtn = overlay.querySelector("#modalOk");
+  if (okBtn) {
+    okBtn.addEventListener("click", () => {
+      const val = document.getElementById("modalInput")?.value || "";
+      overlay.remove();
+      if (onConfirm) onConfirm({ option: null, value: val });
+    });
+  }
+  
+  // 点击遮罩关闭
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      if (onCancel) onCancel();
+    }
+  });
+  
+  // 键盘
+  overlay.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      overlay.remove();
+      if (onCancel) onCancel();
+    }
+  });
+  
+  return overlay;
+}
+
+// 便捷函数
+function showConfirm(title, body, onOk, okText) {
+  showModal({
+    title, body,
+    confirm: { okText },
+    onConfirm: () => onOk(),
+    onCancel: () => {}
+  });
+}
+
+function showPrompt(title, body, onOk, placeholder, defaultValue, inputType) {
+  showModal({
+    title, body,
+    input: { type: inputType || 'text', placeholder, value: defaultValue || '' },
+    confirm: { okText: '确定' },
+    onConfirm: ({ value }) => onOk(value),
+    onCancel: () => {}
+  });
+}
+
 function syncMaterialUsage(k) {
   if (!materials[k]) return;
   const name = materials[k].name;
   const prodKeys = Object.keys(products);
   if (prodKeys.length === 0) { alert("没有产品"); return; }
   
-  // 询问同步方式
-  const choice = prompt(
-    `将「${name}」同步到所有规格：\n\n` +
-    `1. 按首个规格比例自动填充\n` +
-    `2. 固定用量（所有规格用同一个值）\n` +
-    `3. 留空，自己填\n\n` +
-    `输入 1、2 或 3：`,
-    "1"
-  );
-  if (!choice) return;
+  // 用自定义弹窗
+  const overlay = showModal({
+    title: `同步「${name}」到所有规格`,
+    body: "选择同步方式：",
+    options: [
+      "按首个规格比例自动填充",
+      "固定用量（所有规格用同一个值）",
+      "留空，自己填"
+    ],
+    input: {
+      type: "number",
+      placeholder: "输入固定用量（克）",
+      showOnOption: 1  // 选第2个选项时显示
+    },
+    onConfirm: (val) => {
+      // 这个不会用到，因为有选项
+    },
+    onCancel: () => {}
+  });
   
-  let fixedVal = null;
-  if (choice.trim() === "2") {
-    const v = prompt(`输入固定用量（克）：`, "");
-    if (v === null) return;
-    fixedVal = parseFloat(v);
-    if (isNaN(fixedVal) || fixedVal < 0) { alert("用量无效"); return; }
-  }
-  
-  for (const pk of prodKeys) {
+  // 监听选项点击
+  let selectedOpt = -1;
+  overlay.querySelectorAll(".modal-opt").forEach(btn => {
+    btn.addEventListener("click", () => {
+      selectedOpt = parseInt(btn.dataset.opt);
+      // 如果是固定用量，显示输入框并等待确认
+      if (selectedOpt === 1) {
+        const inputRow = overlay.querySelector(".modal-input-row");
+        if (inputRow) {
+          inputRow.style.display = "flex";
+          // 加一个确认按钮
+          const actions = overlay.querySelector(".modal-actions");
+          if (!actions.querySelector("#modalConfirmOpt")) {
+            const confirmBtn = document.createElement("button");
+            confirmBtn.className = "modal-btn primary";
+            confirmBtn.id = "modalConfirmOpt";
+            confirmBtn.textContent = "确认同步";
+            confirmBtn.addEventListener("click", () => {
+              const inputEl = document.getElementById("modalInput");
+              const fixedVal = parseFloat(inputEl?.value);
+              if (isNaN(fixedVal) || fixedVal < 0) {
+                inputEl?.focus();
+                return;
+              }
+              doSync(k, 1, fixedVal);
+              overlay.remove();
+            });
+            actions.appendChild(confirmBtn);
+          }
+          document.getElementById("modalInput")?.focus();
+        }
+      } else {
+        // 直接同步
+        doSync(k, selectedOpt, null);
+        overlay.remove();
+      }
+    });
+  });
+}
+
+function doSync(k, mode, fixedVal) {
+  const name = materials[k].name;
+  for (const pk of Object.keys(products)) {
     const p = products[pk];
     if (p.specs.length === 0) continue;
     
-    if (choice.trim() === "1") {
-      // 按首个规格比例填充
+    if (mode === 0) {
+      // 按比例
       const base = p.specs[0];
       const baseVal = parseFloat((p.usage[base] || {})[k]);
       if (isNaN(baseVal) || baseVal <= 0) {
@@ -957,14 +1237,14 @@ function syncMaterialUsage(k) {
         return;
       }
       for (const s of p.specs) {
-        if (s === base) continue; // 跳过首个规格
+        if (s === base) continue;
         const ratio = parseFloat(s) / parseFloat(base);
         if (!isNaN(ratio) && ratio > 0) {
           if (!p.usage[s]) p.usage[s] = {};
           p.usage[s][k] = Math.round(baseVal * ratio * 100) / 100;
         }
       }
-    } else if (choice.trim() === "2") {
+    } else if (mode === 1) {
       // 固定用量
       for (const s of p.specs) {
         if (!p.usage[s]) p.usage[s] = {};
@@ -980,99 +1260,116 @@ function syncMaterialUsage(k) {
       }
     }
   }
-  
   scheduleSave();
   renderRecipe();
   calc();
-  alert(`已同步「${name}」到所有规格`);
 }
 
 function manageGroups() {
-  // 显示当前分组列表，让用户选择操作
-  const list = matGroups.map((g, i) => `${i+1}. ${g}`).join("\n");
-  const action = prompt(
-    `当前分组：\n${list || "（无分组）"}\n\n` +
-    `输入操作：\n` +
-    `• 添加新分组：输入分组名（如"装饰"）\n` +
-    `• 删除分组：输入"删 分组名"（如"删 装饰"）\n` +
-    `• 重命名：输入"改 旧名 新名"（如"改 装饰 点缀"）\n\n` +
-    `输入操作：`,
-    ""
-  );
-  if (!action) return;
-  const trimmed = action.trim();
-  
-  // 删除分组
-  if (trimmed.startsWith("删 ")) {
-    const g = trimmed.slice(2).trim();
-    if (!matGroups.includes(g)) { alert("分组不存在"); return; }
-    // 检查是否有物料在这个分组
-    const hasMats = Object.values(materials).some(m => (m.group || "其他") === g);
-    if (hasMats) { alert(`分组「${g}」还有物料，不能删除。先把物料移到其他分组。`); return; }
-    matGroups = matGroups.filter(x => x !== g);
-    scheduleSave();
-    renderMaterials();
-    renderRecipe();
-    calc();
-    return;
-  }
-  
-  // 重命名分组
-  if (trimmed.startsWith("改 ")) {
-    const parts = trimmed.slice(2).trim().split(/\s+/);
-    if (parts.length < 2) { alert("格式：改 旧名 新名"); return; }
-    const oldName = parts[0];
-    const newName = parts.slice(1).join(" ");
-    if (!matGroups.includes(oldName)) { alert("旧分组不存在"); return; }
-    // 更新所有物料的分组
-    for (const k of Object.keys(materials)) {
-      if ((materials[k].group || "其他") === oldName) {
-        materials[k].group = newName;
+  const list = matGroups.map((g, i) => `${i+1}. ${g}`).join("<br>");
+  showModal({
+    title: "管理分组",
+    body: `当前分组：<br>${list || "（无分组）"}`,
+    options: ["添加新分组", "删除分组", "重命名分组"],
+    onConfirm: ({ option }) => {
+      if (option === 0) {
+        // 添加
+        showPrompt("添加分组", "输入新分组名：", (name) => {
+          if (!name || !name.trim()) return;
+          const g = name.trim();
+          if (matGroups.includes(g)) { alert("分组已存在"); return; }
+          matGroups.push(g);
+          scheduleSave();
+          renderMaterials();
+          renderRecipe();
+          calc();
+        }, "如：装饰", "", "text");
+      } else if (option === 1) {
+        // 删除
+        const opts = matGroups.map(g => g);
+        showModal({
+          title: "删除分组",
+          body: "选择要删除的分组：",
+          options: opts,
+          onConfirm: ({ option: idx }) => {
+            const g = opts[idx];
+            const hasMats = Object.values(materials).some(m => (m.group || "其他") === g);
+            if (hasMats) { alert(`分组「${g}」还有物料，不能删除。先把物料移到其他分组。`); return; }
+            matGroups = matGroups.filter(x => x !== g);
+            scheduleSave();
+            renderMaterials();
+            renderRecipe();
+            calc();
+          }
+        });
+      } else if (option === 2) {
+        // 重命名
+        const opts = matGroups.map(g => g);
+        showModal({
+          title: "重命名分组",
+          body: "选择要重命名的分组：",
+          options: opts,
+          onConfirm: ({ option: idx }) => {
+            const oldName = opts[idx];
+            showPrompt("重命名", `将「${oldName}」改为：`, (newName) => {
+              if (!newName || !newName.trim()) return;
+              const g = newName.trim();
+              if (g === oldName) return;
+              if (matGroups.includes(g)) { alert("新分组名已存在"); return; }
+              for (const k of Object.keys(materials)) {
+                if ((materials[k].group || "其他") === oldName) {
+                  materials[k].group = g;
+                }
+              }
+              matGroups = matGroups.map(x => x === oldName ? g : x);
+              scheduleSave();
+              renderMaterials();
+              renderRecipe();
+              calc();
+            }, "新分组名", "", "text");
+          }
+        });
       }
     }
-    matGroups = matGroups.map(g => g === oldName ? newName : g);
-    scheduleSave();
-    renderMaterials();
-    renderRecipe();
-    calc();
-    return;
-  }
-  
-  // 添加新分组
-  const newGroup = trimmed;
-  if (matGroups.includes(newGroup)) { alert("分组已存在"); return; }
-  matGroups.push(newGroup);
-  scheduleSave();
-  renderMaterials();
-  renderRecipe();
-  calc();
+  });
 }
 
 function addSpec() {
   if (!currentProduct) { alert("先新建产品"); return; }
   const p = products[currentProduct];
-  const v = prompt("规格（克）：", "50");
-  if (v === null) return;
-  const s = v.trim();
-  if (!s || p.specs.includes(s)) { if (s && p.specs.includes(s)) alert("规格已存在"); return; }
-  p.specs.push(s);
-  p.usage[s] = {};
-  // 询问是否按首个规格比例同步用量
-  if (p.specs.length >= 2 && confirm(`是否按「${p.specs[0]}g」的用量比例自动填充「${s}g」？\n\n（比例 = ${s} ÷ ${p.specs[0]}）`)) {
-    const base = p.specs[0];
-    const ratio = parseFloat(s) / parseFloat(base);
-    if (!isNaN(ratio) && ratio > 0) {
-      for (const mk of Object.keys(materials)) {
-        const bv = parseFloat((p.usage[base] || {})[mk]);
-        if (!isNaN(bv) && bv > 0) {
-          p.usage[s][mk] = Math.round(bv * ratio * 100) / 100;
+  showPrompt("添加规格", "输入规格（克）：", (v) => {
+    if (!v || !v.trim()) return;
+    const s = v.trim();
+    if (p.specs.includes(s)) { alert("规格已存在"); return; }
+    p.specs.push(s);
+    p.usage[s] = {};
+    // 询问是否同步
+    if (p.specs.length >= 2) {
+      showConfirm(
+        "同步用量",
+        `是否按「${p.specs[0]}g」的用量比例自动填充「${s}g」？\n\n（比例 = ${s} ÷ ${p.specs[0]}）`,
+        () => {
+          const base = p.specs[0];
+          const ratio = parseFloat(s) / parseFloat(base);
+          if (!isNaN(ratio) && ratio > 0) {
+            for (const mk of Object.keys(materials)) {
+              const bv = parseFloat((p.usage[base] || {})[mk]);
+              if (!isNaN(bv) && bv > 0) {
+                p.usage[s][mk] = Math.round(bv * ratio * 100) / 100;
+              }
+            }
+          }
+          scheduleSave();
+          renderRecipe();
+          calc();
         }
-      }
+      );
+    } else {
+      scheduleSave();
+      renderRecipe();
+      calc();
     }
-  }
-  scheduleSave();
-  renderRecipe();
-  calc();
+  }, "50", "", "text");
 }
 
 function renameSpec(oldS, newS) {
@@ -1094,12 +1391,18 @@ function renameSpec(oldS, newS) {
 function deleteSpec(s) {
   if (!currentProduct) return;
   const p = products[currentProduct];
-  if (!confirm(`确定删除规格 ${s}g？`)) return;
-  p.specs = p.specs.filter(x => x !== s);
-  delete p.usage[s];
-  scheduleSave();
-  renderRecipe();
-  calc();
+  showConfirm(
+    "删除规格",
+    `确定删除规格 ${s}g？`,
+    () => {
+      p.specs = p.specs.filter(x => x !== s);
+      delete p.usage[s];
+      scheduleSave();
+      renderRecipe();
+      calc();
+    },
+    "删除"
+  );
 }
 
 function moveSpec(s, dir) {
