@@ -473,7 +473,8 @@ function renderMaterials() {
     grid.innerHTML = '<div class="empty-tip" style="grid-column:1/-1">还没有物料，点下面"添加物料"</div>';
     return;
   }
-  for (const k of keys) {
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
     const m = materials[k];
     const div = document.createElement("div");
     div.className = "mat-card";
@@ -481,6 +482,8 @@ function renderMaterials() {
       <div class="mat-head">
         <input class="mat-name" value="${esc(m.name)}" placeholder="物料名称"
                onchange="materials['${k}'].name=this.value;scheduleSave();calc()">
+        <button class="del-btn" title="上移" ${i===0?"disabled":""} onclick="moveMaterial('${k}',-1)">↑</button>
+        <button class="del-btn" title="下移" ${i===keys.length-1?"disabled":""} onclick="moveMaterial('${k}',1)">↓</button>
         <button class="del-btn" title="删除物料" onclick="deleteMaterial('${k}')">✕</button>
       </div>
       <div class="field-row">
@@ -639,8 +642,8 @@ function addMaterial() {
 }
 
 function deleteMaterial(k) {
-  const m = materials[k];
-  if (!confirm(`确定删除物料「${m.name}」？所有产品里的用量也会清除。`)) return;
+  if (!materials[k]) return;
+  if (!confirm(`确定删除物料「${materials[k].name}」？所有产品里的用量也会清除。`)) return;
   delete materials[k];
   // 清除所有产品里的用量
   for (const p of Object.values(products)) {
@@ -648,6 +651,24 @@ function deleteMaterial(k) {
       delete p.usage[s][k];
     }
   }
+  scheduleSave();
+  renderMaterials();
+  renderRecipe();
+  calc();
+}
+
+function moveMaterial(k, dir) {
+  const keys = Object.keys(materials);
+  const idx = keys.indexOf(k);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= keys.length) return;
+  // 交换位置（重建对象保持顺序）
+  const newOrder = [...keys];
+  newOrder[idx] = newOrder[newIdx];
+  newOrder[newIdx] = k;
+  const reordered = {};
+  for (const key of newOrder) reordered[key] = materials[key];
+  materials = reordered;
   scheduleSave();
   renderMaterials();
   renderRecipe();
@@ -663,6 +684,19 @@ function addSpec() {
   if (!s || p.specs.includes(s)) { if (s && p.specs.includes(s)) alert("规格已存在"); return; }
   p.specs.push(s);
   p.usage[s] = {};
+  // 询问是否按首个规格比例同步用量
+  if (p.specs.length >= 2 && confirm(`是否按「${p.specs[0]}g」的用量比例自动填充「${s}g」？\n\n（比例 = ${s} ÷ ${p.specs[0]}）`)) {
+    const base = p.specs[0];
+    const ratio = parseFloat(s) / parseFloat(base);
+    if (!isNaN(ratio) && ratio > 0) {
+      for (const mk of Object.keys(materials)) {
+        const bv = parseFloat((p.usage[base] || {})[mk]);
+        if (!isNaN(bv) && bv > 0) {
+          p.usage[s][mk] = Math.round(bv * ratio * 100) / 100;
+        }
+      }
+    }
+  }
   scheduleSave();
   renderRecipe();
   calc();
