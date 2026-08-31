@@ -929,11 +929,20 @@ function syncMaterialUsage(k) {
   const choice = prompt(
     `将「${name}」同步到所有规格：\n\n` +
     `1. 按首个规格比例自动填充\n` +
-    `2. 留空，自己填\n\n` +
-    `输入 1 或 2：`,
+    `2. 固定用量（所有规格用同一个值）\n` +
+    `3. 留空，自己填\n\n` +
+    `输入 1、2 或 3：`,
     "1"
   );
   if (!choice) return;
+  
+  let fixedVal = null;
+  if (choice.trim() === "2") {
+    const v = prompt(`输入固定用量（克）：`, "");
+    if (v === null) return;
+    fixedVal = parseFloat(v);
+    if (isNaN(fixedVal) || fixedVal < 0) { alert("用量无效"); return; }
+  }
   
   for (const pk of prodKeys) {
     const p = products[pk];
@@ -954,6 +963,12 @@ function syncMaterialUsage(k) {
           if (!p.usage[s]) p.usage[s] = {};
           p.usage[s][k] = Math.round(baseVal * ratio * 100) / 100;
         }
+      }
+    } else if (choice.trim() === "2") {
+      // 固定用量
+      for (const s of p.specs) {
+        if (!p.usage[s]) p.usage[s] = {};
+        p.usage[s][k] = fixedVal;
       }
     } else {
       // 留空
