@@ -667,6 +667,7 @@ function renderMaterials() {
           <select class="mat-group-sel" onchange="changeGroup('${k}',this.value)" title="分组">
             ${matGroups.map(g => `<option ${(m.group||"其他")===g?"selected":""}>${esc(g)}</option>`).join("")}
           </select>
+          <button class="del-btn" title="同步用量到所有规格" onclick="syncMaterialUsage('${k}')">⇄</button>
           <button class="del-btn" title="删除物料" onclick="deleteMaterial('${k}')">✕</button>
         </div>
         <div class="field-row">
@@ -916,6 +917,59 @@ function changeGroup(k, newGroup) {
   renderMaterials();
   renderRecipe();
   calc();
+}
+
+function syncMaterialUsage(k) {
+  if (!materials[k]) return;
+  const name = materials[k].name;
+  const prodKeys = Object.keys(products);
+  if (prodKeys.length === 0) { alert("没有产品"); return; }
+  
+  // 询问同步方式
+  const choice = prompt(
+    `将「${name}」同步到所有规格：\n\n` +
+    `1. 按首个规格比例自动填充\n` +
+    `2. 留空，自己填\n\n` +
+    `输入 1 或 2：`,
+    "1"
+  );
+  if (!choice) return;
+  
+  for (const pk of prodKeys) {
+    const p = products[pk];
+    if (p.specs.length === 0) continue;
+    
+    if (choice.trim() === "1") {
+      // 按首个规格比例填充
+      const base = p.specs[0];
+      const baseVal = parseFloat((p.usage[base] || {})[k]);
+      if (isNaN(baseVal) || baseVal <= 0) {
+        alert(`「${p.name}」的首个规格（${base}g）没有填「${name}」的用量，无法按比例填充。`);
+        return;
+      }
+      for (const s of p.specs) {
+        if (s === base) continue; // 跳过首个规格
+        const ratio = parseFloat(s) / parseFloat(base);
+        if (!isNaN(ratio) && ratio > 0) {
+          if (!p.usage[s]) p.usage[s] = {};
+          p.usage[s][k] = Math.round(baseVal * ratio * 100) / 100;
+        }
+      }
+    } else {
+      // 留空
+      for (const s of p.specs) {
+        if (!p.usage[s]) p.usage[s] = {};
+        if (p.usage[s][k] === undefined) {
+          p.usage[s][k] = "";
+        }
+      }
+    }
+  }
+  
+  scheduleSave();
+  renderRecipe();
+  calc();
+  alert(`已同步「${name}」到所有规格`);
 }
 
 function manageGroups() {
