@@ -179,6 +179,57 @@
   }
   .spec-tag .x { cursor: pointer; color: var(--muted); font-size: 14px; }
   .spec-tag .x:hover { color: var(--bad); }
+  .spec-tag .mv {
+    cursor: pointer; color: var(--muted); font-size: 13px;
+    padding: 0 3px; user-select: none;
+  }
+  .spec-tag .mv:hover { color: var(--accent); }
+  .spec-tag .mv:disabled { opacity: 0.3; cursor: default; }
+  .batch-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .batch-row label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .batch-row input {
+    width: 90px; text-align: center; font-size: 16px; font-weight: 700;
+  }
+  .batch-row .batch-unit { color: var(--muted); font-size: 13px; }
+  .spec-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .spec-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .spec-card .sc-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .spec-card .sc-title { font-size: 15px; font-weight: 700; color: var(--accent); }
+  .spec-card .sc-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 0; font-size: 13px; gap: 8px;
+  }
+  .spec-card .sc-row .sc-name { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spec-card .sc-row input {
+    width: 76px; padding: 4px 6px; text-align: center; font-size: 13px;
+  }
+  .spec-card .sc-row .sc-gram { color: var(--muted); font-size: 12px; width: 20px; text-align: right; }
+  .spec-card .sc-row .sc-cost { color: var(--accent); font-size: 12px; width: 64px; text-align: right; white-space: nowrap; }
+  .spec-card .sc-total {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 700;
+  }
+  .spec-card .sc-total .sc-t-label { font-size: 13px; color: var(--muted); }
+  .spec-card .sc-total .sc-t-val { font-size: 16px; color: var(--good); }
+  .spec-card .sc-total .sc-t-val small { font-size: 11px; color: var(--muted); font-weight: 400; }
   .matrix-wrap { overflow-x: auto; }
   table.matrix {
     border-collapse: collapse;
@@ -299,10 +350,15 @@
     <div class="spec-tags" id="specTags" style="margin-top:6px"></div>
   </div>
   <button class="add-btn" style="margin-bottom:12px" onclick="addSpec()">+ 添加规格</button>
-  <div class="field" style="margin-bottom:8px">
-    <label>用量表（克）— 每行一个物料，每列一个规格</label>
+  <div class="batch-row">
+    <label>要做多少个：</label>
+    <input type="number" id="batchCount" min="1" step="1" value="1" oninput="onBatchChange(this.value)">
+    <span class="batch-unit">个（批量采购量 = 单个用量 × 数量）</span>
   </div>
-  <div class="matrix-wrap" id="matrixWrap"></div>
+  <div class="field" style="margin-bottom:8px">
+    <label>各规格用量（克）— 每个规格一张卡，填单个用量</label>
+  </div>
+  <div class="spec-cards" id="specCards"></div>
 </div>
 
 <!-- ④ 成本汇总 -->
@@ -466,59 +522,66 @@ function updateUnitPrices() {
 function renderRecipe() {
   const nameInput = document.getElementById("productName");
   const specTags = document.getElementById("specTags");
-  const wrap = document.getElementById("matrixWrap");
   const p = currentProduct ? products[currentProduct] : null;
 
   if (!p) {
     nameInput.value = "";
     specTags.innerHTML = "";
-    wrap.innerHTML = '<div class="empty-tip">先新建一个产品</div>';
+    document.getElementById("specCards").innerHTML = '<div class="empty-tip">先新建一个产品</div>';
     return;
   }
   nameInput.value = p.name || "";
 
-  // 规格标签
+  // 规格标签（带排序按钮）
   specTags.innerHTML = "";
-  for (const s of p.specs) {
+  p.specs.forEach((s, idx) => {
     const tag = document.createElement("div");
     tag.className = "spec-tag";
     tag.innerHTML = `
+      <span class="mv" ${idx===0?"disabled":""} onclick="moveSpec('${esc(s)}',-1)" title="左移">←</span>
       <input value="${esc(s)}" onchange="renameSpec('${esc(s)}',this.value)">
+      <span class="mv" ${idx===p.specs.length-1?"disabled":""} onclick="moveSpec('${esc(s)}',1)" title="右移">→</span>
       <span class="x" onclick="deleteSpec('${esc(s)}')" title="删除规格">✕</span>
     `;
     specTags.appendChild(tag);
-  }
+  });
 
-  // 用量矩阵
+  // 用量卡片（每个规格一张卡）
   const matKeys = Object.keys(materials);
+  const cards = document.getElementById("specCards");
   if (matKeys.length === 0 || p.specs.length === 0) {
-    wrap.innerHTML = '<div class="empty-tip">需要至少1个物料和1个规格</div>';
+    cards.innerHTML = '<div class="empty-tip">需要至少1个物料和1个规格</div>';
     return;
   }
-  let html = '<table class="matrix"><thead><tr><th>物料</th>';
-  for (const s of p.specs) html += `<th>${esc(s)}g</th>`;
-  for (const s of p.specs) html += `<th>${esc(s)}g 成本</th>`;
-  html += '</tr></thead><tbody>';
-  for (const mk of matKeys) {
-    html += `<tr><td class="mat-name-cell">${esc(materials[mk].name||mk)}</td>`;
-    for (const s of p.specs) {
-      const v = (p.usage[s] || {})[mk] || "";
-      html += `<td><input type="number" step="0.01" min="0" value="${v}"
-        oninput="setUsage('${esc(s)}','${mk}',this.value)"></td>`;
-    }
-    for (const s of p.specs) {
-      html += `<td class="cost-cell" id="cost-${esc(s)}-${mk}">—</td>`;
-    }
-    html += '</tr>';
-  }
-  // 合计行
-  html += '<tr class="total-row"><td class="mat-name-cell">单个合计</td>';
-  for (const s of p.specs) html += '<td></td>';
+  cards.innerHTML = "";
   for (const s of p.specs) {
-    html += `<td class="cost-cell" id="total-${esc(s)}">—</td>`;
+    const card = document.createElement("div");
+    card.className = "spec-card";
+    let rows = "";
+    for (const mk of matKeys) {
+      const v = (p.usage[s] || {})[mk] || "";
+      rows += `
+        <div class="sc-row">
+          <span class="sc-name" title="${esc(materials[mk].name||mk)}">${esc(materials[mk].name||mk)}</span>
+          <input type="number" step="0.01" min="0" value="${v}"
+            oninput="setUsage('${esc(s)}','${mk}',this.value)">
+          <span class="sc-gram">克</span>
+          <span class="sc-cost" id="cost-${esc(s)}-${mk}">—</span>
+        </div>`;
+    }
+    card.innerHTML = `
+      <div class="sc-head">
+        <span class="sc-title">${esc(s)}g</span>
+        <span class="sc-cost" id="total-${esc(s)}" style="font-size:14px;font-weight:700">—</span>
+      </div>
+      ${rows}
+      <div class="sc-total">
+        <span class="sc-t-label">单个合计</span>
+        <span class="sc-t-val" id="totalval-${esc(s)}">— <small>元/个</small></span>
+      </div>
+    `;
+    cards.appendChild(card);
   }
-  html += '</tr></tbody></table>';
-  wrap.innerHTML = html;
 }
 
 // ================= 操作 =================
@@ -622,6 +685,24 @@ function deleteSpec(s) {
   calc();
 }
 
+function moveSpec(s, dir) {
+  if (!currentProduct) return;
+  const p = products[currentProduct];
+  const idx = p.specs.indexOf(s);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= p.specs.length) return;
+  // 交换位置
+  p.specs[idx] = p.specs[newIdx];
+  p.specs[newIdx] = s;
+  scheduleSave();
+  renderRecipe();
+  calc();
+}
+
+function onBatchChange(v) {
+  calc();
+}
+
 function setUsage(spec, matKey, v) {
   if (!currentProduct) return;
   const p = products[currentProduct];
@@ -632,6 +713,12 @@ function setUsage(spec, matKey, v) {
 }
 
 // ================= 计算 =================
+function getBatch() {
+  const el = document.getElementById("batchCount");
+  const n = parseInt(el ? el.value : "1");
+  return (n && n > 0) ? n : 1;
+}
+
 function calc() {
   updateUnitPrices();
   const p = currentProduct ? products[currentProduct] : null;
@@ -639,6 +726,7 @@ function calc() {
   grid.innerHTML = "";
   if (!p) return;
 
+  const batch = getBatch();
   const totals = {};
   for (const s of p.specs) {
     let total = 0;
@@ -657,8 +745,19 @@ function calc() {
       }
     }
     totals[s] = valid ? total : null;
+    // 卡片头部的合计
     const tc = document.getElementById("total-" + s);
-    if (tc) tc.textContent = valid ? total.toFixed(4) : "—";
+    if (tc) tc.textContent = valid ? total.toFixed(4) + " 元" : "—";
+    // 卡片底部的合计（带批量）
+    const tv = document.getElementById("totalval-" + s);
+    if (tv) {
+      if (valid) {
+        const batchTotal = total * batch;
+        tv.innerHTML = batchTotal.toFixed(2) + " <small>元/" + batch + "个</small>";
+      } else {
+        tv.innerHTML = "— <small>元/个</small>";
+      }
+    }
   }
 
   // 汇总卡片
@@ -670,9 +769,11 @@ function calc() {
     const v = totals[s];
     const div = document.createElement("div");
     div.className = "summary-item" + (v !== null && v === min && validTotals.length > 1 ? " lowest" : "");
+    const batchTotal = v !== null ? (v * batch).toFixed(2) : "—";
     div.innerHTML = `
       <div class="spec">${esc(s)}g</div>
       <div class="cost">${v !== null ? v.toFixed(4) : "—"} <small>元/个</small></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">${batchTotal} 元/${batch}个</div>
       ${v !== null && v === min && validTotals.length > 1 ? '<div class="badge">最低</div>' : ""}
     `;
     grid.appendChild(div);
