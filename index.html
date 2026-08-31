@@ -364,6 +364,62 @@
     .field-row { grid-template-columns: 1fr; }
     input, select { font-size: 16px; }
     .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .summary-item .cost { font-size: 26px; }
+    
+    /* 用量卡片：1 列，物料行换行 */
+    .spec-cards { grid-template-columns: 1fr; gap: 10px; }
+    .spec-card { padding: 10px; }
+    .spec-card .sc-row { 
+      flex-wrap: wrap; 
+      gap: 6px;
+      padding: 8px 0;
+    }
+    .spec-card .sc-row .sc-name { 
+      flex: 1 1 100%; 
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .spec-card .sc-row .sc-inputs { 
+      flex: 1 1 100%; 
+      justify-content: flex-start;
+      gap: 10px;
+    }
+    .spec-card .sc-row input { 
+      width: 80px; 
+      padding: 8px 10px; 
+      font-size: 15px;
+    }
+    .spec-card .sc-row .sc-gram { font-size: 13px; }
+    .spec-card .sc-row .sc-batch { font-size: 12px; }
+    .spec-card .sc-row .sc-cost { font-size: 14px; }
+    
+    /* 规格标签：横向滚动 */
+    .spec-tags { 
+      flex-wrap: nowrap; 
+      overflow-x: auto; 
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+    .spec-tag { flex-shrink: 0; }
+    
+    /* 物料分组：优化间距 */
+    .mat-group { padding: 10px; }
+    .mat-group .mg-body { gap: 8px; }
+    .mat-card { padding: 10px; }
+    .mat-card .mat-head { gap: 6px; }
+    .mat-card .mat-name { font-size: 15px; }
+    .mat-card .mat-group-sel { font-size: 14px; padding: 6px 8px; }
+    .mat-card .del-btn { font-size: 18px; padding: 4px 8px; }
+    .mat-card .field input { padding: 8px 10px; font-size: 15px; }
+    
+    /* 按钮：加大触摸目标 */
+    .add-btn { padding: 10px 16px; font-size: 14px; }
+    .batch-row input { width: 100px; padding: 8px 10px; }
+    
+    /* 汇总卡片：加大数字 */
+    .summary-item { padding: 10px; }
+    .summary-item .spec { font-size: 14px; }
+    .summary-item .cost { font-size: 28px; }
   }
 </style>
 </head>
